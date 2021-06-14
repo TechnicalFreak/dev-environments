@@ -1,0 +1,101 @@
+# Jeder Branch erhält ein eigenes Deployment und ist unter einen eigenen 
+# Url erreichbar. Aktuell:
+# http://20.79.116.165/dev-<Branch-Name>/swagger/
+# CI-Trigger wird bei jedem Eincheckvorgang im Branch mit dem Namensmuster
+# "feature/*" gestartet.
+trigger:
+  branches:
+    include:
+    - feature/*
+# Jede Nacht um 0 Uhr werden alle Feature-Branches neu gebaut, die zu diesem
+# Zeitpunkt existieren. Kurz vorher werden alle Feature-Branches gelöscht.
+# Dies erfolgt in einem separatem Skript.
+# So werden Deployments entfernt, bei denen der dazugehörige Branch im Laufe
+# des Tages gelöscht wurde.
+schedules:
+  - cron: "00 22 * * *" # entspricht 0 Uhr unserer Zeit.
+    displayName: Daily midnight build
+    branches:
+      include:
+      - feature/*
+    always: true
+
+variables:
+- group: Globals
+
+pool:
+  vmImage: ubuntu-latest
+steps:
+# Setzen des Namespaces nach dem Namensmuster "dev-<Branch-Name>" 
+# in den jeweiligen yaml-files.
+- task: PowerShell@2
+  displayName: Ersetze __branch__ string in ingress.yaml
+  inputs:
+    targetType: 'inline'
+    script: '(Get-Content -path $(Build.SourcesDirectory)/k8s/ingress.yaml -Raw) -replace "__branch__","$(EnvironmentPrefix)$(Build.SourceBranchName)"|Set-Content -Path $(Build.SourcesDirectory)/k8s/ingress.yaml'
+- task: PowerShell@2
+  displayName: Ersetze __branch__ string in service.yaml
+  inputs:
+    targetType: 'inline'
+    script: '(Get-Content -path $(Build.SourcesDirectory)/k8s/service.yaml -Raw) -replace "__branch__","$(EnvironmentPrefix)$(Build.SourceBranchName)"|Set-Content -Path $(Build.SourcesDirectory)/k8s/service.yaml'
+- task: PowerShell@2
+  displayName: Ersetze __branch__ string in deployment.yaml
+  inputs:
+    targetType: 'inline'
+    script: '(Get-Content -path $(Build.SourcesDirectory)/k8s/deployment.yaml -Raw) -replace "__branch__","$(EnvironmentPrefix)$(Build.SourceBranchName)"|Set-Content -Path $(Build.SourcesDirectory)/k8s/deployment.yaml'
+- task: PowerShell@2
+  displayName: Ersetze __branch__ string in namespace.yaml
+  inputs:
+    targetType: 'inline'
+    script: '(Get-Content -path $(Build.SourcesDirectory)/k8s/namespace.yaml -Raw) -replace "__branch__","$(EnvironmentPrefix)$(Build.SourceBranchName)"|Set-Content -Path $(Build.SourcesDirectory)/k8s/namespace.yaml'
+
+- task: Kubernetes@1
+  displayName: Deploye namespace.yaml
+  inputs:
+    connectionType: 'Azure Resource Manager'
+    azureSubscriptionEndpoint: '$(Subscription)'
+    azureResourceGroup: '$(RessourceGroup)'
+    kubernetesCluster: '$(K8sCluster)'
+    command: 'apply'
+    useConfigurationFile: true
+    configuration: '$(Build.SourcesDirectory)/k8s/namespace.yaml'
+    secretType: 'dockerRegistry'
+    containerRegistryType: 'Azure Container Registry'
+- task: Kubernetes@1
+  displayName: Deploye deployment.yaml
+  inputs:
+    connectionType: 'Azure Resource Manager'
+    azureSubscriptionEndpoint: '$(Subscription)'
+    azureResourceGroup: '$(RessourceGroup)'
+    kubernetesCluster: '$(K8sCluster)'
+    command: 'apply'
+    useConfigurationFile: true
+    configuration: '$(Build.SourcesDirectory)/k8s/deployment.yaml'
+    secretType: 'dockerRegistry'
+    containerRegistryType: 'Azure Container Registry'
+
+- task: Kubernetes@1
+  displayName: Deploye service.yaml
+  inputs:
+    connectionType: 'Azure Resource Manager'
+    azureSubscriptionEndpoint: '$(Subscription)'
+    azureResourceGroup: '$(RessourceGroup)'
+    kubernetesCluster: '$(K8sCluster)'
+    command: 'apply'
+    useConfigurationFile: true
+    configuration: '$(Build.SourcesDirectory)/k8s/service.yaml'
+    secretType: 'dockerRegistry'
+    containerRegistryType: 'Azure Container Registry'
+    arguments: 
+- task: Kubernetes@1
+  displayName: Deploye ingress.yaml
+  inputs:
+    connectionType: 'Azure Resource Manager'
+    azureSubscriptionEndpoint: '$(Subscription)'
+    azureResourceGroup: '$(RessourceGroup)'
+    kubernetesCluster: '$(K8sCluster)'
+    command: 'apply'
+    useConfigurationFile: true
+    configuration: '$(Build.SourcesDirectory)/k8s/ingress.yaml'
+    secretType: 'dockerRegistry'
+    containerRegistryType: 'Azure Container Registry'

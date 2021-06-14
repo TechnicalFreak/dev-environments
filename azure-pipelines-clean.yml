@@ -1,0 +1,32 @@
+# Reagiert auf keinen Checkin.
+trigger: none
+
+# Wird nur auf dem Master ausgeführt, damit sichergestellt ist, dass dieser
+# Job nur einmal ausgeführt wird.
+# Mit der einmaligen Ausführung werden alle Kubernetes-Namespaces
+# mit dem Namensmuster "dev-*" gelöscht.
+# 10 Minuten später werden alle noch existierenden Feature-Branches neu gebaut.
+schedules:
+  - cron: "50 21 * * *" # entspricht 23:50 unserer Zeit
+    displayName: Daily midnight build
+    branches:
+      include: 
+      - master 
+    always: true
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+# Delete All namespaces start with $(Environment-Prefix)
+- task: AzureCLI@2
+  inputs:
+    azureSubscription: '$(Subscription)'
+    scriptType: 'bash'
+    scriptLocation: 'inlineScript'
+    inlineScript: |
+      az aks get-credentials --resource-group $(RessourceGroup) --name $(K8sCluster)
+      kubectl get ns
+      kubectl get namespaces --no-headers=true -o custom-columns=:metadata.name | grep $(Environment-Prefix) | xargs kubectl delete namespace
+      kubectl get ns
+  displayName: 'Delete All namespaces start with $(Environment-Prefix)'

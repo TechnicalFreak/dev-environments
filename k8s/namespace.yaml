@@ -1,0 +1,10 @@
+{
+  "apiVersion": "v1",
+  "kind": "Namespace",
+  "metadata": {
+    "name": "__branch__",
+    "labels": {
+      "name": "__branch__"
+    }
+  }
+}
