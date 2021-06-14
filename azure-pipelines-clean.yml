@@ -17,6 +17,9 @@ schedules:
 pool:
   vmImage: ubuntu-latest
 
+variables:
+- group: Globals
+
 steps:
 # Delete All namespaces start with $(Environment-Prefix)
 - task: AzureCLI@2
