@@ -50,7 +50,7 @@ steps:
     inlineScript: |
       az aks get-credentials --resource-group $(RessourceGroup) --name $(K8sCluster)
       kubectl get ns
-      kubectl get namespaces --no-headers=true -o custom-columns=:metadata.name | grep $(Environment-Prefix) | xargs kubectl delete namespace
+      kubectl get namespaces --no-headers=true -o custom-columns=:metadata.name | grep $(EnvironmentPrefix) | xargs kubectl delete namespace
       kubectl get ns
   displayName: 'Delete All namespaces start with $(EnvironmentPrefix)'
 ```
